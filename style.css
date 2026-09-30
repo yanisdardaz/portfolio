@@ -967,6 +967,26 @@ section {
     transform: translate(0, 0);
 }
 
+.project-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--accent-tertiary);
+    text-decoration: none;
+}
+
+.project-link:hover {
+    color: var(--text-primary);
+}
+
+.project-link svg {
+    width: 16px;
+    height: 16px;
+}
+
 /* ==========================================================================
    TRYHACKME LIVE STATS SECTION
    ========================================================================== */
