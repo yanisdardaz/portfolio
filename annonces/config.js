@@ -6,7 +6,7 @@
    2. Produits > crée 3 produits "VIP 1 jour", "VIP 3 jours", "VIP 7 jours"
    3. Pour chacun : "Créer un lien de paiement"
       - Après paiement > "Rediriger vers ton site" :
-        https://TON-SITE/annonces/#/vip-ok
+        https://TON-SITE/annonces/#vip-ok
    4. Colle les liens ci-dessous (stripeLink).
    Tant qu'un lien est vide, le site utilise un paiement de DÉMO
    (carte test 4242 4242 4242 4242) : aucun argent n'est débité.

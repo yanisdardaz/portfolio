@@ -169,6 +169,12 @@
     return close;
   }
 
+  function confirmBox(msg, onYes) {
+    modal("Confirmation", `<p style="margin-bottom:18px">${esc(msg)}</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-ghost" id="c-no">Annuler</button><button class="btn btn-danger" id="c-yes">Supprimer</button></div>`,
+      (m, close) => { $("#c-no", m).onclick = close; $("#c-yes", m).onclick = () => { close(); onYes(); }; });
+  }
+
   /* ---------------- Paiement (Stripe ou démo) ---------------- */
   function luhn(num) {
     let sum = 0, dbl = false;
@@ -195,7 +201,7 @@
           </div></div>
         <div class="field"><label>Nom sur la carte</label><input name="holder" placeholder="Prénom Nom" required></div>
         <button class="btn btn-primary btn-block btn-lg" type="submit">Payer ${money(amount)}</button>
-        <div class="stripe-badge">🔒 Paiement sécurisé · Propulsé par <b>stripe</b></div>
+        <div class="stripe-badge">🔒 Démo : aucune donnée bancaire n'est envoyée ni enregistrée</div>
       </form>`;
     modal(esc(title), body, (m, close) => {
       const f = $("#pay-form", m);
@@ -238,7 +244,7 @@
     checkout({
       title: "Passer en VIP ♛", amount: plan.price,
       lines: [["Annonce", ad.title.slice(0, 32) + (ad.title.length > 32 ? "…" : "")], ["Offre", plan.label]],
-      onSuccess: () => { applyVip(adId, plan.days); location.hash = "#/annonce/" + adId; },
+      onSuccess: () => { applyVip(adId, plan.days); location.hash = "#annonce-" + adId; },
     });
   }
   function applyVip(adId, days) {
@@ -266,7 +272,7 @@
   }
   function bindCards(root) {
     $$(".card[data-id]", root).forEach((el) => {
-      const go = () => (location.hash = "#/annonce/" + el.dataset.id);
+      const go = () => (location.hash = "#annonce-" + el.dataset.id);
       el.onclick = go;
       el.onkeydown = (e) => { if (e.key === "Enter") go(); };
     });
@@ -330,12 +336,12 @@
       const vipHere = list.filter(isVip);
       $("#vip-section").innerHTML = vipHere.length ? `
         <div class="section-title"><span class="pill pill-vip">♛ VIP</span> À la une aujourd'hui
-          <a href="#/vip" class="muted small" style="margin-left:auto;font-weight:500">Mettre mon annonce ici →</a></div>` : "";
+          <a href="#vip" class="muted small" style="margin-left:auto;font-weight:500">Mettre mon annonce ici →</a></div>` : "";
       $("#count").textContent = `${list.length} annonce${list.length > 1 ? "s" : ""}`;
       $("#results").innerHTML = list.length
         ? `<div class="grid">${list.map(card).join("")}</div>`
         : `<div class="empty"><div class="icon">🔍</div><h3>Aucune annonce trouvée</h3><p class="muted">Essaie d'élargir ta recherche.</p>
-           <a href="#/publier" class="btn btn-primary">Déposer la première</a></div>`;
+           <a href="#publier" class="btn btn-primary">Déposer la première</a></div>`;
       bindCards($("#results"));
     };
 
@@ -368,7 +374,7 @@
     const pay = safeUrl(ad.payLink);
 
     app.innerHTML = `
-      <div class="breadcrumb"><a href="#/">Annonces</a> › <a href="#/" data-cat="${c.id}">${esc(c.name)}</a> › ${esc(ad.title.slice(0, 40))}</div>
+      <div class="breadcrumb"><a href="#">Annonces</a> › <a href="#" data-cat="${c.id}">${esc(c.name)}</a> › ${esc(ad.title.slice(0, 40))}</div>
       <div class="detail">
         <div>
           <div class="gallery-main">
@@ -425,7 +431,7 @@
                 ${ad.seller.email ? `<a class="contact-line" href="mailto:${esc(ad.seller.email)}?subject=${encodeURIComponent("Annonce : " + ad.title)}">✉️ ${esc(ad.seller.email)}</a>` : ""}
                 ${ad.seller.phone ? `<a class="contact-line" target="_blank" rel="noopener" href="https://wa.me/${esc(waNumber(ad.seller.phone))}?text=${encodeURIComponent("Bonjour, votre annonce « " + ad.title + " » est-elle toujours disponible ?")}">💬 WhatsApp</a>` : ""}
               </div>
-              <button class="btn btn-success btn-block btn-lg" id="pay">💳 Payer ${money(ad.price)}</button>
+              ${pay ? `<a class="btn btn-success btn-block btn-lg" id="pay" href="${esc(pay)}" target="_blank" rel="noopener">💳 Payer ${money(ad.price)}</a>` : `<button class="btn btn-success btn-block btn-lg" id="pay">💳 Payer ${money(ad.price)}</button>`}
             </div>
             <div class="secure">🛡️ ${pay ? "Paiement via le lien sécurisé du vendeur." : "Paiement sécurisé. Ne payez jamais par mandat cash."}</div>
           </div>
@@ -433,7 +439,7 @@
           <div class="panel vip-promo">
             <h4>♛ ${vip ? "Ton annonce est VIP" : "Booste ton annonce"}</h4>
             <p class="muted small" style="margin-bottom:12px">${vip ? `Encore ${timeLeft(ad.vipUntil)} en tête des résultats. Prolonge pour rester au-dessus.` : "Passe au-dessus de toutes les annonces dès 2,99 €/jour."}</p>
-            <a href="#/vip/${esc(ad.id)}" class="btn btn-gold btn-block">${vip ? "Prolonger le VIP" : "Passer en VIP"}</a>
+            <a href="#vip-${esc(ad.id)}" class="btn btn-gold btn-block">${vip ? "Prolonger le VIP" : "Passer en VIP"}</a>
           </div>
           <button class="btn btn-danger btn-block" id="del">Supprimer l'annonce</button>` : `
           <div class="panel"><h4 style="margin-bottom:6px">Conseils de sécurité</h4>
@@ -448,7 +454,7 @@
     $(".breadcrumb [data-cat]").onclick = () => { state.cat = c.id; };
     $("#show-contact").onclick = (e) => { e.currentTarget.classList.add("hidden"); $("#contact").classList.remove("hidden"); };
     $("#pay").onclick = () => {
-      if (pay) return window.open(pay, "_blank", "noopener");
+      if (pay) return;
       checkout({ title: "Payer le vendeur", amount: ad.price, lines: [["Article", ad.title.slice(0, 34)], ["Vendeur", ad.seller.name]],
         onSuccess: () => toast("Le vendeur a été notifié de ton paiement ✓", "ok") });
     };
@@ -466,9 +472,10 @@
     };
     const del = $("#del");
     if (del) del.onclick = () => {
-      if (!confirm("Supprimer définitivement cette annonce ?")) return;
-      ads = ads.filter((x) => x.id !== id); save();
-      toast("Annonce supprimée"); location.hash = "#/mes-annonces";
+      confirmBox("Supprimer définitivement cette annonce ?", () => {
+        ads = ads.filter((x) => x.id !== id); save();
+        toast("Annonce supprimée"); location.hash = "#mes-annonces";
+      });
     };
   }
   const waNumber = (p) => { const d = p.replace(/\D/g, ""); return d.startsWith("0") ? "33" + d.slice(1) : d; };
@@ -565,7 +572,7 @@
       ads.unshift(ad);
       if (!save()) { ads.shift(); return; }
       toast("Annonce publiée 🎉", "ok");
-      location.hash = f.wantVip.checked ? "#/vip/" + ad.id : "#/annonce/" + ad.id;
+      location.hash = f.wantVip.checked ? "#vip-" + ad.id : "#annonce-" + ad.id;
     };
   }
 
@@ -618,7 +625,7 @@
                 <span class="muted small">${money(a.price)} · ${esc(a.city)}</span></div>
                 ${isVip(a) ? `<span class="pill pill-vip">VIP ${timeLeft(a.vipUntil)}</span>` : `<span class="pill pill-gray">Standard</span>`}
               </div>`).join("")}</div>`
-            : `<div class="empty" style="padding:30px"><p class="muted">Tu n'as pas encore d'annonce.</p><a href="#/publier" class="btn btn-primary">Déposer une annonce</a></div>`}
+            : `<div class="empty" style="padding:30px"><p class="muted">Tu n'as pas encore d'annonce.</p><a href="#publier" class="btn btn-primary">Déposer une annonce</a></div>`}
           </div>
         </div>
         <aside class="side">
@@ -626,7 +633,7 @@
             <h3 style="margin-bottom:12px">Récapitulatif</h3>
             <div id="recap"></div>
             <button class="btn btn-gold btn-block btn-lg" id="buy" style="margin-top:16px" ${my.length ? "" : "disabled"}>♛ Payer et activer</button>
-            <div class="stripe-badge">🔒 Paiement sécurisé par <b>stripe</b></div>
+            <div class="stripe-badge">🔒 Activation immédiate après paiement</div>
           </div>
           <div class="panel"><h4 style="margin-bottom:6px">Comment ça marche ?</h4>
             <p class="muted small">Le VIP est activé immédiatement après le paiement. Si ton annonce est déjà VIP, la durée s'ajoute au temps restant.</p></div>
@@ -657,9 +664,9 @@
     const plan = p && CFG.vipPlans.find((x) => x.id === p.planId);
     if (plan && getAd(p.adId) && Date.now() - p.at < DAY) {
       applyVip(p.adId, plan.days);
-      location.replace("#/annonce/" + p.adId);
+      location.replace("#annonce-" + p.adId);
     } else {
-      location.replace("#/mes-annonces");
+      location.replace("#mes-annonces");
     }
   }
 
@@ -669,7 +676,7 @@
     app.innerHTML = `
       <div class="page-head" style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap">
         <div><h1>Mes annonces</h1><p class="muted">Gère tes annonces et booste-les en VIP.</p></div>
-        <a href="#/publier" class="btn btn-primary">+ Nouvelle annonce</a>
+        <a href="#publier" class="btn btn-primary">+ Nouvelle annonce</a>
       </div>
       <div class="stat-grid">
         <div class="stat"><span class="muted small">Annonces</span><b>${my.length}</b></div>
@@ -678,9 +685,9 @@
       </div>
       ${my.length ? `<div class="mine-list">${my.map((a) => `
         <div class="mine-item">
-          <a href="#/annonce/${esc(a.id)}"><img src="${esc(cover(a))}" alt=""></a>
+          <a href="#annonce-${esc(a.id)}"><img src="${esc(cover(a))}" alt=""></a>
           <div style="min-width:0">
-            <a href="#/annonce/${esc(a.id)}"><b>${esc(a.title)}</b></a>
+            <a href="#annonce-${esc(a.id)}"><b>${esc(a.title)}</b></a>
             <div class="muted small">${money(a.price)} · ${esc(a.city)} · ${timeAgo(a.createdAt)} · 👁 ${a.views || 0}</div>
             <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               ${isVip(a) ? `<span class="pill pill-vip">♛ VIP · ${timeLeft(a.vipUntil)}</span>` : `<span class="pill pill-gray">Standard</span>`}
@@ -688,36 +695,41 @@
             </div>
           </div>
           <div class="actions">
-            <a href="#/vip/${esc(a.id)}" class="btn btn-gold">♛ ${isVip(a) ? "Prolonger" : "Booster"}</a>
+            <a href="#vip-${esc(a.id)}" class="btn btn-gold">♛ ${isVip(a) ? "Prolonger" : "Booster"}</a>
             <button class="btn btn-danger" data-del="${esc(a.id)}">Supprimer</button>
           </div>
         </div>`).join("")}</div>`
       : `<div class="empty"><div class="icon">📦</div><h3>Aucune annonce pour l'instant</h3><p class="muted">Dépose ta première annonce gratuitement.</p>
-         <a href="#/publier" class="btn btn-primary">Déposer une annonce</a></div>`}`;
+         <a href="#publier" class="btn btn-primary">Déposer une annonce</a></div>`}`;
     $$("[data-del]").forEach((b) => (b.onclick = () => {
-      if (!confirm("Supprimer cette annonce ?")) return;
-      ads = ads.filter((x) => x.id !== b.dataset.del); save(); toast("Annonce supprimée"); pageMine();
+      confirmBox("Supprimer cette annonce ?", () => {
+        ads = ads.filter((x) => x.id !== b.dataset.del); save(); toast("Annonce supprimée"); pageMine();
+      });
     }));
   }
 
   function notFound() {
     app.innerHTML = `<div class="empty" style="margin-top:40px"><div class="icon">🧭</div><h3>Page introuvable</h3>
-      <p class="muted">Cette annonce n'existe plus ou a été supprimée.</p><a href="#/" class="btn btn-primary">Retour aux annonces</a></div>`;
+      <p class="muted">Cette annonce n'existe plus ou a été supprimée.</p><a href="#" class="btn btn-primary">Retour aux annonces</a></div>`;
   }
 
   /* ---------------- Router ---------------- */
   const app = $("#app");
   function route() {
     $("#modal-root").innerHTML = "";
-    const [, page, arg] = (location.hash.replace(/^#/, "") || "/").split("/");
+    const h = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
+    let page = h, arg = "";
+    if (h.startsWith("annonce-")) { page = "annonce"; arg = h.slice(8); }
+    else if (h.startsWith("vip-") && h !== "vip-ok") { page = "vip"; arg = h.slice(4); }
+    if (page === "accueil") page = "";
     const navKey = { "": "home", annonce: "home", publier: "post", vip: "vip", "mes-annonces": "mine" }[page] ?? "";
     $$("[data-nav]").forEach((a) => a.classList.toggle("active", a.dataset.nav === navKey));
     window.scrollTo(0, 0);
     switch (page) {
       case "": case undefined: return pageHome();
-      case "annonce": return pageDetail(decodeURIComponent(arg || ""));
+      case "annonce": return pageDetail(arg);
       case "publier": return pagePost();
-      case "vip": return pageVip(arg && decodeURIComponent(arg));
+      case "vip": return pageVip(arg);
       case "vip-ok": return pageVipOk();
       case "mes-annonces": return pageMine();
       default: return notFound();
