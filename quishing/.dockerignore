@@ -1,0 +1,4 @@
+tests
+backend/tests
+**/__pycache__
+*.md

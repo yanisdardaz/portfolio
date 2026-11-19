@@ -1,0 +1,23 @@
+# Déploiement en un clic du serveur QR Sentinel sur Render (offre gratuite).
+services:
+  - type: web
+    name: qr-sentinel
+    runtime: docker
+    dockerfilePath: ./quishing/Dockerfile
+    dockerContext: ./quishing
+    buildFilter:
+      paths: ["quishing/**"]
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: RATE_LIMIT_PER_MIN
+        value: "20"
+      - key: ALLOWED_ORIGINS
+        value: "https://yanisdardaz.github.io"
+      - key: GSB_API_KEY
+        sync: false
+      - key: URLHAUS_AUTH_KEY
+        sync: false
