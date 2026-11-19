@@ -146,7 +146,7 @@ node --test quishing/tests/js/*.test.js
 cd quishing && npm install --no-save playwright && npx playwright install chromium && node tests/e2e/run.js
 ```
 
-- **104 tests Python** : moteur de règles, suivi des redirections contre un faux
+- **106 tests Python** : moteur de règles, suivi des redirections contre un faux
   site piégé local (3xx, meta refresh, JavaScript, boucles, APK…), certificats
   TLS auto-signés, protection SSRF, RDAP, réputation, API HTTP (erreurs, CORS,
   limitation de débit, accès aux fichiers).

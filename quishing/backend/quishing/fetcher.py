@@ -78,22 +78,33 @@ class FetchResult:
 # ---------------------------------------------------------------- connexions
 
 
+def _connect_any(ips: list[str], port: int, timeout: float) -> socket.socket:
+    """Se connecte à la première adresse vérifiée qui répond (IPv6 puis IPv4…)."""
+    last: OSError | None = None
+    for ip in ips:
+        try:
+            return socket.create_connection((ip, port), timeout)
+        except OSError as exc:
+            last = exc
+    raise last or OSError("aucune adresse")
+
+
 class _HTTPConn(http.client.HTTPConnection):
-    def __init__(self, host: str, ip: str, port: int, timeout: float):
+    def __init__(self, host: str, ips: list[str], port: int, timeout: float):
         super().__init__(host, port=port, timeout=timeout)
-        self._ip = ip
+        self._ips = ips
 
     def connect(self) -> None:
-        self.sock = socket.create_connection((self._ip, self.port), self.timeout)
+        self.sock = _connect_any(self._ips, self.port, self.timeout)
 
 
 class _HTTPSConn(http.client.HTTPSConnection):
-    def __init__(self, host: str, ip: str, port: int, timeout: float, context: ssl.SSLContext):
+    def __init__(self, host: str, ips: list[str], port: int, timeout: float, context: ssl.SSLContext):
         super().__init__(host, port=port, timeout=timeout, context=context)
-        self._ip = ip
+        self._ips = ips
 
     def connect(self) -> None:
-        sock = socket.create_connection((self._ip, self.port), self.timeout)
+        sock = _connect_any(self._ips, self.port, self.timeout)
         self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
 
 
@@ -137,7 +148,7 @@ class SafeFetcher:
         self.ssl_context = ssl_context or ssl.create_default_context()
 
     # -- résolution DNS vérifiée
-    def resolve(self, host: str, port: int) -> str:
+    def resolve(self, host: str, port: int) -> list[str]:
         infos = self.resolver(host, port, 0, socket.SOCK_STREAM)
         ips = []
         for info in infos:
@@ -150,7 +161,7 @@ class SafeFetcher:
             for ip in ips:
                 if not is_public_ip(ip):
                     raise BlockedAddress(ip)
-        return ips[0]
+        return ips
 
     def _request(self, url: str):
         parts = urlsplit(url)
@@ -160,11 +171,11 @@ class SafeFetcher:
         except UnicodeError:
             host_ascii = host
         port = parts.port or (443 if parts.scheme == "https" else 80)
-        ip = self.resolve(host_ascii, port)
+        ips = self.resolve(host_ascii, port)
         if parts.scheme == "https":
-            conn = _HTTPSConn(host_ascii, ip, port, self.timeout, self.ssl_context)
+            conn = _HTTPSConn(host_ascii, ips, port, self.timeout, self.ssl_context)
         else:
-            conn = _HTTPConn(host_ascii, ip, port, self.timeout)
+            conn = _HTTPConn(host_ascii, ips, port, self.timeout)
         target = parts.path or "/"
         if parts.query:
             target += "?" + parts.query
@@ -177,6 +188,7 @@ class SafeFetcher:
             "Connection": "close",
         })
         resp = conn.getresponse()
+        ip = conn.sock.getpeername()[0] if conn.sock else ips[0]
         return conn, resp, ip
 
     @staticmethod

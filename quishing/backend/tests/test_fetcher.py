@@ -2,7 +2,7 @@ import socket
 
 import pytest
 
-from quishing.fetcher import BlockedAddress, SafeFetcher, is_public_ip
+from quishing.fetcher import BlockedAddress, SafeFetcher, _connect_any, is_public_ip
 
 from . import fake_site
 
@@ -116,3 +116,18 @@ def test_html_redirect_parser():
     assert f('<META HTTP-EQUIV="Refresh" CONTENT="5;URL=https://x.y/">') == ("https://x.y/", "meta refresh")
     assert f("<script>document.location = 'https://a.b/c'</script>") == ("https://a.b/c", "javascript")
     assert f("<p>rien</p>") is None
+
+
+def test_connect_tries_next_address(site):
+    # Première adresse injoignable (port fermé côté IPv6), la suivante répond
+    port = int(site.rsplit(":", 1)[1])
+    sock = _connect_any(["::1", "127.0.0.1"], port, 2)
+    assert sock.getpeername()[0] == "127.0.0.1"
+    sock.close()
+
+
+def test_resolve_returns_all_vetted_addresses():
+    def resolver(host, port, *a):
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2606:4700::1", port, 0, 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))]
+    assert SafeFetcher(resolver=resolver).resolve("x.example", 443) == ["2606:4700::1", "93.184.216.34"]
